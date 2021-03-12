@@ -1,0 +1,33 @@
+{
+    "name": "current-project",
+    "version": "1.0.0",
+    "description": "",
+    "main": "index.js",
+    "scripts": {
+        "start": "concurrently 'npm run devAPI' 'npm run ui'",
+        "ui": "cd ui && npm start",
+        "api": "cd api && npm start",
+        "testParse": "node api/productionApps/parseExperiment.mjs",
+        "db": "mongod --dbpath api/data/db",
+        "devAPI": "cd api && npm run dev",
+        "nightly": "cd api && npm run nightly",
+        "nightlyDev": "cd api && npm run nightlyDev",
+        "background": "cd api && npm run background"
+    },
+    "author": "", 
+    "license": "ISC",
+    "dependencies": {
+        "@amcharts/amcharts4": "^4.10.13",
+        "availity-reactstrap-validation": "^2.7.0",
+        "aws-amplify": "^3.0.20",
+        "axios": "^0.21.0",
+        "concurrently": "^5.3.0",
+        "cors": "^2.8.5",
+        "express": "^4.16.4",
+        "mongoose": "^5.11.15"
+    },
+    "devDependencies": {
+        "dotenv": "^8.0.0",
+        "nodemon": "^1.19.0"
+    }
+}

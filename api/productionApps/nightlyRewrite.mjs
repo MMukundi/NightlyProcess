@@ -8,6 +8,11 @@ import config from "../config.mjs"
 import eods from "../models/eods.js"
 import { Filters, setFilter } from "./filters.js"
 import frequency from "../models/frequency.js";
+import fs from "fs"
+import path from "path"
+import CSVWriter, { createObjectCsvWriter as createCsvWriter } from "csv-writer"
+import { decode } from "punycode";
+
 import('intl')
 
 const { DateTime, Settings } = lux;
@@ -16,7 +21,7 @@ const { WorkerPool } = Workers
 Settings.defaultZoneName = "America/New_York"
 
 // const StoringTask = "Storing to DB"
-const workerPool = new WorkerPool('./productionApps/processTicks.mjs', 50)
+const workerPool = new WorkerPool('./productionApps/processTicks.mjs', 25)
 
 function dateToString(date) {
     return date.toFormat('yyyy-MM-dd')
@@ -59,14 +64,55 @@ async function storeDate(date) {
     if (date.weekday < 6) {
         const eodsWithTicks = await getEodsWithTicks(date)
         await Databasing.storeEODs(eodsWithTicks)
+        return eodsWithTicks
     }
+    return []
+}
+const baseURI = 
+path.join(
+decodeURIComponent
+(path.dirname(import.meta.url))
+.replace("file:/",``)
+,"..")
+function getFileFor(date) {
+    return path.join(baseURI,`csv/${dateToString(date)}.csv`)
+} 
+function last(list){
+    return list[list.length-1]
 }
 async function storeDates(start, end) {
     const totalDays = end.diff(start).as("days")
     const StoringTask = `Storing ${dateToString(start)} - ${dateToString(end)} [${totalDays}]`
+
+
+
     beginTask(StoringTask, totalDays)
     for (let date = start.toLocal(), days = 0; days < totalDays; days++, date = date.plus({ day: 1 })) {
-        await storeDate(date)
+        const CSVpath = getFileFor(date)
+        const csvTask = last(CSVpath.split(path.sep))
+        const withTicks = await storeDate(date)
+        if (withTicks != undefined) {
+            beginTask(csvTask, 1)
+                const writer = createCsvWriter({
+                    path: CSVpath,
+                    header: [
+                        { id: 'T', title: 'ticker' },
+                        { id: 'oddlotVolume', title: 'Odd Lot Volume' },
+                        { id: 'oddlotCount', title: 'Odd Lot Count' },
+                        { id: 'volume', title: 'Volume' },
+                        { id: 'count', title: 'Count' },
+                        { id: 'blockCount', title: 'Block Count' },
+                        { id: 'blockVolume', title: 'Block Volume' },
+                    ]
+                });
+                await writer
+                    .writeRecords(withTicks)
+                    .then(() => {
+                        incrementTask(csvTask)
+                        endTask(csvTask)
+                    });
+            
+        }
         incrementTask(StoringTask)
     }
 
@@ -116,11 +162,12 @@ async function runCalculations(start, end) {
 const startDate = DateTime.fromSQL(process.argv[2])
 const endDate = DateTime.fromSQL(process.argv[3])
 mongoose.set('useCreateIndex', true);
-mongoose.connect(config.DATABASE_URL, { useNewUrlParser: true, useUnifiedTopology: true }).then(async (e)=>{
+mongoose.connect(config.DATABASE_URL, { useNewUrlParser: true, useUnifiedTopology: true }).then(async (e) => {
     console.log(`Connected to Database at ${config.DATABASE_URL}`)
+    console.log(createCsvWriter, CSVWriter)
     storeDates(startDate, endDate).then((d) => {
         closeTasks()
-        console.log("Hi",d)
+        console.log("Hi", d)
         // mongoose.disconnect()
         console.log("Closing!", startDate, endDate)
     }).catch(console.log)
@@ -135,4 +182,4 @@ mongoose.connect(config.DATABASE_URL, { useNewUrlParser: true, useUnifiedTopolog
 //     }).catch(console.log)
 //     console.log(`Connected to Database at http://localhost/testFreq`)
 // });
-//2021-05-01 2021-05-04
+//npm run nightly 2021-05-01 2021-05-04

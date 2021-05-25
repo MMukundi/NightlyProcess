@@ -31,6 +31,9 @@ export function beginTask(taskName, totalCount){
 }
 export function incrementTask(taskName){
     const task = Tasks[taskName]
+    if(task==undefined){
+        throw new Error(`Task ${taskName} does not exist`)
+    }
     task.bar.increment()
     // task.progress+=task.progressDelta
     // const elapsed = Date.now()-task.start

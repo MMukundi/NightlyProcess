@@ -1,4 +1,4 @@
-const mongoose = require('mongoose')
+import mongoose from "mongoose"
 const Schema = mongoose.Schema
 
 const eod = new Schema({
@@ -186,4 +186,4 @@ const eod = new Schema({
 })
 eod.index({ T: 1, t: 1}, { unique: true });
 mongoose.set('useCreateIndex', true);
-module.exports = mongoose.model('eod',eod)
+export default mongoose.model('eod',eod)

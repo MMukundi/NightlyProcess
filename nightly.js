@@ -1,17 +1,14 @@
 import { beginTask, incrementTask, endTask, closeTasks } from "./taskbars.js"
-import * as Polygon from '../old stock-viewer files/PolygonUtils.js'
-import * as Databasing from '../old stock-viewer files/Databasing.js'
+import * as Polygon from './PolygonUtils.js'
+import * as Databasing from './Databasing.js'
 import Workers from './WorkerPool.js'
 import lux from 'luxon';
 import mongoose from 'mongoose';
-import config from "../config.js"
-import eods from "../models/eods.js"
+import config from "./config.js"
+import eods from "./models/eods.js"
 import { Filters, setFilter } from "./filters.js"
-import frequency from "../models/frequency.js";
-import fs from "fs"
 import path from "path"
 import CSVWriter, { createObjectCsvWriter as createCsvWriter } from "csv-writer"
-import { decode } from "punycode";
 
 import('intl')
 
@@ -21,7 +18,7 @@ const { WorkerPool } = Workers
 Settings.defaultZoneName = "America/New_York"
 
 // const StoringTask = "Storing to DB"
-const workerPool = new WorkerPool('./productionApps/processTicks.js', 25)
+const workerPool = new WorkerPool('./processTrades.js', 5)
 
 function dateToString(date) {
     return date.toFormat('yyyy-MM-dd')
@@ -32,16 +29,15 @@ function runWorker(data) {
     })
 }
 
-async function withTickData(eod, dateString) {
-    const tickData = await runWorker({ ticker: eod.T, date: dateString })
-    tickData.d = dateToString(DateTime.fromMillis(eod.t))
-    tickData.r = eod.h - eod.l
-    const withTicks = { ...eod, ...tickData }
-    // console.log(eod.T,dateString)
-    return withTicks
+async function withTradeData(eod, dateString) {
+    const tradeData = await runWorker({ ticker: eod.T, date: dateString }).catch(console.log)
+    tradeData.d = dateToString(DateTime.fromMillis(eod.t))
+    tradeData.r = eod.h - eod.l
+    const withTrades = { ...eod, ...tradeData }
+    return withTrades
 }
 
-async function getEodsWithTicks(date) {
+async function getEodsWithTrades(date) {
     const dateString = dateToString(date)
     const eods = (await Polygon.getGroupedDaily({ date: dateString }))?.results
     if (eods == null) {
@@ -53,18 +49,18 @@ async function getEodsWithTicks(date) {
         incrementTask(DateTask)
         return data
     }
-    const withTicksPromise = eods.map(eod => withTickData(eod, dateString).then(incrementDateTask).catch(console.log))
-    return Promise.all(withTicksPromise).then(withTicks => {
+    const withTradesPromise = eods.map(eod => withTradeData(eod, dateString).then(incrementDateTask).catch(console.log))
+    return Promise.all(withTradesPromise).then(withTrades => {
         endTask(DateTask)
-        return withTicks
+        return withTrades
     })
 }
 
 async function storeDate(date) {
     if (date.weekday < 6) {
-        const eodsWithTicks = await getEodsWithTicks(date)
-        await Databasing.storeEODs(eodsWithTicks)
-        return eodsWithTicks
+        const eodsWithTrades = await getEodsWithTrades(date)
+        await Databasing.storeEODs(eodsWithTrades)
+        return eodsWithTrades
     }
     return []
 }
@@ -72,8 +68,7 @@ const baseURI =
 path.join(
 decodeURIComponent
 (path.dirname(import.meta.url))
-.replace("file:/",``)
-,"..")
+.replace("file:/",``))
 function getFileFor(date) {
     return path.join(baseURI,`csv/${dateToString(date)}.csv`)
 } 
@@ -90,8 +85,8 @@ async function storeDates(start, end) {
     for (let date = start.toLocal(), days = 0; days < totalDays; days++, date = date.plus({ day: 1 })) {
         const CSVpath = getFileFor(date)
         const csvTask = last(CSVpath.split(path.sep))
-        const withTicks = await storeDate(date)
-        if (withTicks != undefined) {
+        const withTrades = await storeDate(date)
+        if (withTrades != undefined) {
             beginTask(csvTask, 1)
                 const writer = createCsvWriter({
                     path: CSVpath,
@@ -106,7 +101,7 @@ async function storeDates(start, end) {
                     ]
                 });
                 await writer
-                    .writeRecords(withTicks)
+                    .writeRecords(withTrades)
                     .then(() => {
                         incrementTask(csvTask)
                         endTask(csvTask)
@@ -164,10 +159,9 @@ const endDate = DateTime.fromSQL(process.argv[3])
 mongoose.set('useCreateIndex', true);
 mongoose.connect(config.DATABASE_URL, { useNewUrlParser: true, useUnifiedTopology: true }).then(async (e) => {
     console.log(`Connected to Database at ${config.DATABASE_URL}`)
-    console.log(createCsvWriter, CSVWriter)
     storeDates(startDate, endDate).then((d) => {
         closeTasks()
-        console.log("Hi", d)
+        console.log("Complete", d)
         // mongoose.disconnect()
         console.log("Closing!", startDate, endDate)
     }).catch(console.log)

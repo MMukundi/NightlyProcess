@@ -1,6 +1,5 @@
-
 const key = process.env.API_KEY
-import * as PolygonUtils from '../old stock-viewer files/PolygonUtils.js'
+import * as PolygonUtils from './PolygonUtils.js'
 // import mongoose from "mongoose"
 import Frequency from "./models/frequency.js"
 
@@ -43,7 +42,7 @@ async function storeFrequencies(ticker, trades) {
 // start().then((res) => console.log(res));
 
 
-export async function getTicks(ticker, date, invalidConditions = [15, 16, 38, 17], limit = 50000) {
+export async function getTrades(ticker, date, invalidConditions = [15, 16, 38, 17], limit = 50000) {
     // Initialization of all the values we want to store
     let oddlotVolume = 0; let oddlotCount = 0; let volume = 0; let count = 0; let blockCount = 0; let blockVolume = 0;
 
@@ -53,11 +52,11 @@ export async function getTicks(ticker, date, invalidConditions = [15, 16, 38, 17
     // The data as returned from polygon
     let data;
 
-    // The timestamp offset of the current page of tick data
+    // The timestamp offset of the current page of trade data
     let t = 0;
 
     do {
-        data = await PolygonUtils.getTicksPage({ timestamp: t, limit, date, ticker })
+        data = await PolygonUtils.getTradesPage({ timestamp: t, limit, date, ticker })
         // console.log(data.results_count,t)
         if (data.results.length == 0) break;
 
@@ -89,9 +88,9 @@ export async function getTicks(ticker, date, invalidConditions = [15, 16, 38, 17
 
     // Once the result count is less than limit, we must have gotten them all
 
-    // console.log(`${count} ticks for ${ticker} on ${date}`)
+    // console.log(`${count} trades for ${ticker} on ${date}`)
 
-    const tickSummary = {
+    const tradeSummary = {
         oddlotVolume,
         oddlotCount,
         volume,
@@ -100,11 +99,11 @@ export async function getTicks(ticker, date, invalidConditions = [15, 16, 38, 17
         blockVolume
     }
     // console.log(count)
-    // console.log(ticker,date,tickSummary)
-    return tickSummary
+    // console.log(ticker,date,tradeSummary)
+    return tradeSummary
 }
 
-// getTicks("AMC", "2021-01-29").then((data) => { console.log(data) })
-// getTicks("AMC", "2021-01-29").then((data) => { console.log(data) })
-// getTicks("AMC", "2021-01-28").then((data) => { console.log(data) })
-//getTicks("PTEN", "2021-03-01").then((data) => { console.log(data) })
+// getTrades("AMC", "2021-01-29").then((data) => { console.log(data) })
+// getTrades("AMC", "2021-01-29").then((data) => { console.log(data) })
+// getTrades("AMC", "2021-01-28").then((data) => { console.log(data) })
+//getTrades("PTEN", "2021-03-01").then((data) => { console.log(data) })

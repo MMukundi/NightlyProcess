@@ -1,9 +1,8 @@
 // import Eod from './Eod'
-// import Tick from './Tick'
+// import Trade from './Trade'
 // import Averages from './Averages'
-const mongoose = require('mongoose');
-const EOD = require('./eods');
-const Tick= require("./tick")
+import mongoose from "mongoose"
+import EOD from "./eods.js"
 const Schema = mongoose.Schema;
 
 let Tickers = new Schema({
@@ -83,4 +82,4 @@ let Tickers = new Schema({
 		count : Number
 	}
 });
-module.exports = mongoose.model('Tickers', Tickers);
+export default mongoose.model('Tickers', Tickers);

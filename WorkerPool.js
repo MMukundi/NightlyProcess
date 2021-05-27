@@ -1,5 +1,5 @@
-const { combinationsReplacement } = require('simple-statistics')
-const { Worker, SHARE_ENV } = require('worker_threads')
+import { combinationsReplacement } from 'simple-statistics'
+import { Worker, SHARE_ENV } from 'worker_threads'
 function mod(m, n) {
     return ((m % n) + n) % n
 }
@@ -79,7 +79,7 @@ class WorkerPool {
         }
     }
     returnToPool(worker) {
-        if (!this.tasks.empty()) {
+       if (!this.tasks.empty()) {
             const {data,callback,error} = this.tasks.remove()
             this.runWorker(worker,data,callback,error)
         } else {
@@ -88,7 +88,6 @@ class WorkerPool {
         }
     }
     runWorker(worker,data,callback,error){
-        // console.log(data,callback,error)
         worker.callback = callback
         worker.error = error
         worker.postMessage(data)
@@ -172,4 +171,4 @@ class WorkerBee {
         this.runWorker(data,callback,error)
     }
 }
-module.exports = {WorkerPool,WorkerBee}
+export default {WorkerPool,WorkerBee}

@@ -39,7 +39,7 @@ export const getTickerPage = apiRequest("v2/reference/tickers",{tickers:[]})
 //<{ticker:string,multiplier:number,timespan:string,from:number,to:number},{},AggregateResponse>
 export const getDailies = apiRequest("v2/aggs/ticker/{ticker}/range/{multiplier}/{timespan}/{from}/{to}",{results:[]})
 //<{ticker:string,date:string},{limit:number,timestamp:number},HistorcTradesResponse>
-export const getTicksPage = apiRequest("v2/ticks/stocks/trades/{ticker}/{date}",{results:[]})
+export const getTradesPage = apiRequest("v2/ticks/stocks/trades/{ticker}/{date}",{results:[]})
 //<{ticker:string},{},TickerInfo>
 export const getInfo = apiRequest("v1/meta/symbols/{ticker}/company")
 //<{date:string},{},{results:{T,v,o,c,h,l,t}[]}>
@@ -74,7 +74,7 @@ export async function* iterateTickers(){
 //     // Or the pointer is still within range, there is more data so keep looping
 //     let data: HistorcTradesResponse
 //     do {
-//         data = await getTicksPage({ticker:symbol,date:dateString,limit:pageSize,timestamp:nextPageTime})
+//         data = await getTradesPage({ticker:symbol,date:dateString,limit:pageSize,timestamp:nextPageTime})
 //         bufferSize = data.results_count
 //         if (bufferSize > 0)
 //             nextPageTime = data.results[bufferSize - 1].t
@@ -187,19 +187,19 @@ export async function* iterateDailies(symbol, start, end, step) {
     return null
 }
 /**
- * Returns an iterator of the tick data
+ * Returns an iterator of the trade data
  * @param symbol 
  * @param date 
  */
-export async function* iterateTickData(symbol, date) {
-    for await (let page of iterateTickPages(symbol, date)) {
-        for (let tick of page.results) {
-            yield tick
+export async function* iterateTradeData(symbol, date) {
+    for await (let page of iterateTradePages(symbol, date)) {
+        for (let trade of page.results) {
+            yield trade
         }
     }
     return null
 }
-export async function* iterateTickPages(symbol, date){
+export async function* iterateTradePages(symbol, date){
     let nextPageTime = date
     const dateString = toUTCString(nextPageTime)
     let bufferSize
@@ -207,7 +207,7 @@ export async function* iterateTickPages(symbol, date){
     // Or the pointer is still within range, there is more data so keep looping
     let data
     do {
-        data = await getTicksPage({ticker:symbol,date:dateString,limit:pageSize,timestamp:nextPageTime})
+        data = await getTradesPage({ticker:symbol,date:dateString,limit:pageSize,timestamp:nextPageTime})
         bufferSize = data.results_count
         if (bufferSize > 0)
             nextPageTime = data.results[bufferSize - 1].t
@@ -215,7 +215,7 @@ export async function* iterateTickPages(symbol, date){
     } while (bufferSize >= pageSize)
     return data
 }
-// export default {roundToNearestDay,roundToNearestMultiple,getDailies, iterateDailies,iterateDailiesPages, getInfo, iterateTickData,iterateTickPages, getTickers, millisInADay, millisIn90Days, millisIn90MarketDays }
+// export default {roundToNearestDay,roundToNearestMultiple,getDailies, iterateDailies,iterateDailiesPages, getInfo, iterateTradeData,iterateTradePages, getTickers, millisInADay, millisIn90Days, millisIn90MarketDays }
 
 // The aggregates method expects the following values:
 // ticker: string,

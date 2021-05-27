@@ -53,4 +53,4 @@ function gapDown(series, i) {
 	return series[i].h < (series[i - 1].l)
 }
 
-module.exports = {Filters,setFilter}
+export {Filters,setFilter}

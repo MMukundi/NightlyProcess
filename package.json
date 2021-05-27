@@ -1,8 +1,10 @@
 {
   "scripts": {
-    "start": "node --trace-warnings productionApps/nightlyRewrite.js",
-    "dev": "nodemon productionApps/nightlyRewrite.js",
-    "test": "cd api && npm run nightly 2021-05-01 2021-05-04"
+    "start": "node --trace-warnings nightly.js",
+    "dev": "nodemon nightly.js",
+    "test": "npm start 2021-05-01 2021-05-04",
+    "testDev": "npm run dev 2021-05-01 2021-05-04",
+    "db": "mongod --dbpath data/db"
   },
   "type": "module",
   "dependencies": {
@@ -14,15 +16,17 @@
     "csv-writer": "^1.6.0",
     "dotenv": "^8.2.0",
     "express": "^4.17.1",
+    "find-config": "^1.0.0",
     "intl": "^1.2.5",
     "luxon": "^1.26.0",
     "mongoose": "^5.11.15",
     "multi-progress-bars": "^3.2.3",
     "node-fetch": "^2.6.1",
-    "nodemon": "^2.0.7",
     "polygon.io": "^2.0.2",
     "progress": "^2.0.3",
-    "simple-statistics": "^7.4.1",
-    "util": "^0.12.3"
+    "simple-statistics": "^7.4.1"
+  },
+  "devDependencies": {
+    "nodemon": "^2.0.7"
   }
 }

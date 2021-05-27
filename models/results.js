@@ -1,4 +1,4 @@
-const mongoose = require('mongoose')
+import mongoose from "mongoose"
 const Schema = mongoose.Schema
 
 const results = new Schema({
@@ -23,4 +23,4 @@ const results = new Schema({
 })
 mongoose.set('useCreateIndex', true);
 results.index({ ticker: 1, date: 1}, { unique: true });
-module.exports = mongoose.model('results',results)
+export default mongoose.model('results',results)

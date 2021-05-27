@@ -1,11 +1,10 @@
 import { millisIn90MarketDays, millisInADay } from './Common.js'
-import * as Calculation from './Calculation.js'
 import mongoose from 'mongoose'
 
-import EODs from '../models/eods.js'
-import Tickers from '../models/tickers.js'
+import EODs from './models/eods.js'
+import Tickers from './models/tickers.js'
 import * as PolygonUtils from './PolygonUtils.js';
-import TickSchema from '../models/tick.js'
+import TradeSchema from './models/trade.js'
 
 const ShouldLog = false
 // mongoose.connect("mongodb://54.147.196.139:27017",{useNewUrlParser: true, useUnifiedTopology: true },async (e)=>{
@@ -109,14 +108,14 @@ export async function storeDailies(symbol, start, end) {
     start = rangeInfo.newMin
     end = rangeInfo.newMax
     const dailiesPages = await PolygonUtils.iterateDailiesPages(symbol, start, end, millisInADay);
-    const tickPages = await PolygonUtils.iterateTickPages(symbol, start);
+    const tradePages = await PolygonUtils.iterateTradePages(symbol, start);
     for await (let page of dailiesPages) {
         // console.log(page)
         // doc.updateOne({ $push: { daily: { $each: page.results } } }, {}, (e, d) => e ? console.log("DailyError", e) : null)
         await EODs.insertMany(page.results, (e, d) => e ? console.log("DailyError", e) : null)
     }
-    // for await(let page of tickPages){
-    //     await TickSchema.updateOne({$push:{tick:{$each:page.results}}},{},(e,d)=>e?console.log("TickError",e):null)
+    // for await(let page of tradePages){
+    //     await TradeSchema.updateOne({$push:{trade:{$each:page.results}}},{},(e,d)=>e?console.log("TradeError",e):null)
     // }
     console.log(`Stored new data for ${symbol} from ${start} to ${end}`)
     return doc
@@ -136,8 +135,8 @@ export function between(data, start, end, key) {
     }
     return values
 }
-// export async function getTicks(symbol, start, end) {
-//     return between((await EODs.findOne({ symbol }))?.get("tick"), start, end, "t")
+// export async function getTrades(symbol, start, end) {
+//     return between((await EODs.findOne({ symbol }))?.get("trade"), start, end, "t")
 // }
 
 // Retrieves the EODs for a specified ticker in a given range
@@ -149,52 +148,6 @@ export async function getDailyData(T, date) {
     return await EOD.find({ T, d: date })
 }
 
-export function runAggregateCalulations(dailies) {
-    let count = 0
-    let totalRange = 0
-    let totalTPV = 0
-    let totalVWAP = 0
-    let totalVolume = 0
-
-    const aggregateCalculations = Calculation.runCalculations(dailies.reverse(), {
-        Range: (n) => {
-            count++
-            totalRange += (n.h - n.l)
-            return totalRange / count
-            // return { totalRange, avg: totalRange / count, count }
-        },
-        VWAP: (n) => {
-            const DailyVWAP = (n.h + n.l + n.c) / 3
-            totalTPV += n.v * DailyVWAP
-            totalVWAP += DailyVWAP
-            totalVolume += n.v
-            return totalVWAP / count
-            // return { DailyVWAP, AvgDailyVWAP: totalVWAP / count, RunningVWAP: totalTPV / totalVolume }
-        },
-        Volume: (n) => {
-            return totalVolume / count
-        }
-    }, { outputAfter: [0, 14, 29, 44], runOnAll: true })
-    const data = {}
-    // console.log(dailies[0])
-    data.ticker = dailies[0].tickerSymbol
-    data.date = dailies[0].t
-
-    data.high = dailies[0].h
-    data.low = dailies[0].l
-    data.close = dailies[0].c
-    data.open = dailies[0].o
-    // for(let calc of ["Range","WVAP"] as (keyof typeof results)[]){
-    for (let calc in aggregateCalculations) {
-        let calcKey = calc
-        let lowerKey = calcKey.toLowerCase();
-        for (let inpsUsed in aggregateCalculations[calcKey]) {
-            // data[`${lowerKey}${(Number(inpsUsed) > 1 ? inpsUsed : "")}`] = calcKey == "VWAP" ? aggregateCalculations[calcKey][inpsUsed].AvgDailyVWAP : aggregateCalculations[calcKey][inpsUsed].avg
-            data[`${lowerKey}${(Number(inpsUsed) > 1 ? inpsUsed : "")}`] = aggregateCalculations[calcKey][inpsUsed]
-        }
-    }
-    return data
-}
 
 // export function getData(symbol: string, start: number, end: number, f: Function) {
 //     conn.query("SELECT * FROM StockData WHERE ticker=? AND date between FROM_UNIXTIME(?) and FROM_UNIXTIME(?)", [symbol, start / 1000, end / 1000], f)

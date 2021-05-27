@@ -1,13 +1,9 @@
-const mongoose = require('mongoose');
+import mongoose from "mongoose"
 const Schema = mongoose.Schema;
 
-let Tick = new Schema({
+let Trade = new Schema({
 		T:{
 			type:String
-		},
-
-		I: {
-			type: String
 		},
 		x: {
 			type: Number
@@ -16,7 +12,7 @@ let Tick = new Schema({
 			type: Number
 		},
 		i: {
-			type: String
+			type: Number
 		},
 		e: {
 			type: Number
@@ -46,5 +42,5 @@ let Tick = new Schema({
 			type: Number
 		}
 	})
-	Tick.index({T:1, i: 1,x: 1, r: 1}, { unique: true });
-	module.exports = mongoose.model('Tick',Tick);
+	Trade.index({T:1, i: 1,x: 1, r: 1}, { unique: true });
+	export default mongoose.model('Trade',Trade);

@@ -36,7 +36,7 @@ May 3rd should store each of 10325 tickers
 If you'd prefer to use a local mongo db, you can run the db with this command. It requires you to download the [mongo driver mongod](https://docs.mongodb.com/manual/installation/)
 ## __Outputs__
 In the mongo database specified, there should be a fews Collections:
-## EODs
+### EODs
 A summary of the trading activity on a given day.
 
 <details>
@@ -76,7 +76,7 @@ Type information
 ```
 </details>
 
-## Frequencies 
+### Frequencies 
 
 A record of how many times an item has traded at a given price (rounded to the nearest cent).
 
@@ -114,7 +114,7 @@ the table would read
 ```
 </details>
 <!---
-## Trades
+### Trades
 
 <details>
 <summary>Type information
@@ -168,7 +168,7 @@ the table would read
 ```
 </details>
 
-## Tickers
+### Tickers
 
 A collection of information about the various tickers
 

@@ -3,23 +3,23 @@ import _colors from "colors"
 export const progressBars = new cliProgress.MultiBar({
     clearOnComplete: false,
     hideCursor: true,
-    format
+    format:`[{bar}] {percentage}% | ETA: {eta}s | {value}/{total}`
 
 }, cliProgress.Presets.shades_grey);
 
 export const Tasks = {}
-function format(options, params, payload){
-    // bar grows dynamically by current progress - no whitespaces are added
-    const bar = options.barCompleteString.substr(0, Math.round(params.progress*options.barsize));
+// function format(options, params, payload){
+//     // bar grows dynamically by current progress - no whitespaces are added
+//     const bar = options.barCompleteString.substr(0, Math.round(params.progress*options.barsize));
 
-    // end value reached ?
-    // change color to green when finished
-    if (params.value >= params.total){
-        return `# ${params.eta}s ${_colors.grey(payload.task)}   ${_colors.green(params.value + '/' + params.total)} --[${bar}]--`;
-    }else{
-        return `# ${params.eta}s ${payload.task}   ${_colors.yellow(params.value + '/' + params.total)} --[${bar}]--`;
-    }
-}
+//     // end value reached ?
+//     // change color to green when finished
+//     if (params.value >= params.total){
+//         return `# ${params.eta}s ${_colors.grey(payload.task)}   ${_colors.green(params.value + '/' + params.total)} --[${bar}]--`;
+//     }else{
+//         return `# ${params.eta}s ${payload.task}   ${_colors.yellow(params.value + '/' + params.total)} --[${bar}]--`;
+//     }
+// }
 export function beginTask(taskName, totalCount){
     const bar = progressBars.create(totalCount,0, {task:taskName})
     Tasks[taskName] = {

@@ -2,67 +2,100 @@
 import pkg from 'dotenv';
 const { config } = pkg;
 import fetch from 'node-fetch'
-import { millisInADay, millisIn90Days, millisIn90MarketDays} from './Common.js'
+import { millisInADay, millisIn90Days, millisIn90MarketDays } from './Common.js'
 // import {ITickerDetailsFormatted as TickerResponse} from 'polygon.io/lib/rest/reference/tickerDetails'
 config()
 export const keyQuery = `apiKey=${process.env.API_KEY}`
 //https://api.polygon.io/v2/aggs/grouped/locale/us/market/stocks/${date}?apiKey=${key}
 //
-function toQueryString(t){
+function toQueryString(t) {
     let qString = ""
-    for(let key in t){
-        qString+=`${key}=${t[key]}&`
+    for (let key in t) {
+        qString += `${key}=${t[key]}&`
     }
     return qString
 }
-function replaceInUrl(apiString){
-    return (t)=>{
+function replaceInUrl(apiString) {
+    return (t) => {
         let s = apiString
-        for(let key in t){
-            s=s.replace(`{${key}}`,t[key]?t[key].toString():"")
+        for (let key in t) {
+            s = s.replace(`{${key}}`, t[key] ? t[key].toString() : "")
         }
         return s
     }
 }
+
+const attemptLimit = 10
+function exponentialBackoff(getData) {
+    async function attempt(errors = []) {
+        const attempts = errors.length
+        return new Promise(
+            (resolve, reject) => {
+                const resolveAndPrint = (d)=>console.log(`Resolving after ${attempts} attempts`,errors,Object.keys(d))||resolve(d)
+                attempts < attemptLimit ?
+                    getData().then(resolve).catch(
+                        (e) => {
+                            errors.push(e)
+                            setTimeout(() =>
+                                attempt(errors).then(resolveAndPrint)
+                                , 1 << attempts)
+                        }
+
+                    ) :
+                    reject({
+                        message: `Unsuccessful after ${attempts} attempts`,
+                        errors
+                    })
+            }
+        )
+    }
+    return attempt()
+}
+
+
 // type PolygonResponse<T> = ({error?:string}&T)
-function apiRequest(apiURL, baseReturnValue={}){
+function apiRequest(apiURL, baseReturnValue = {}) {
     const replacer = replaceInUrl(apiURL)
     // type ResponseOptions = URLOptions&QueryOptions
-    return (apiOptions)=>
-        fetch(`https://api.polygon.io/${replacer(apiOptions)}?${toQueryString(apiOptions)}${keyQuery}`).then(resp=>resp.json())
+    return (apiOptions) => {
+        const makeRequest = () => fetch(`https://api.polygon.io/${replacer(apiOptions)}?${toQueryString(apiOptions)}${keyQuery}`).then(resp => resp.json())
         // .then(d=>{console.log(`https://api.polygon.io/${replacer(apiOptions)}?${toQueryString(apiOptions)}${keyQuery}`,d);return d})
-        .then((data)=>({...baseReturnValue,...data}))
+
+        return exponentialBackoff(makeRequest).then((data) => ({ ...baseReturnValue, ...data }))
+
         // .catch((error:ErrorType)=>({...baseReturnValue,...error}))
+        .catch(console.log)
+    }
 }
 //<{page:number},{},{page:number,perPage:number,count:number,tickers:TickersInfo[]}>
-export const getTickerPage = apiRequest("v2/reference/tickers",{tickers:[]})
+export const getTickerPage = apiRequest("v2/reference/tickers", { tickers: [] })
 //<{ticker:string,multiplier:number,timespan:string,from:number,to:number},{},AggregateResponse>
-export const getDailies = apiRequest("v2/aggs/ticker/{ticker}/range/{multiplier}/{timespan}/{from}/{to}",{results:[]})
+export const getDailies = apiRequest("v2/aggs/ticker/{ticker}/range/{multiplier}/{timespan}/{from}/{to}", { results: [] })
 //<{ticker:string,date:string},{limit:number,timestamp:number},HistorcTradesResponse>
-export const getTradesPage = apiRequest("v2/ticks/stocks/trades/{ticker}/{date}",{results:[]})
+export const getTradesPage = apiRequest("v2/ticks/stocks/trades/{ticker}/{date}", { results: [] })
 //<{ticker:string},{},TickerInfo>
 export const getInfo = apiRequest("v1/meta/symbols/{ticker}/company")
 //<{date:string},{},{results:{T,v,o,c,h,l,t}[]}>
-export const getGroupedDaily = apiRequest("v2/aggs/grouped/locale/us/market/stocks/{date}",{results:[]})
+export const getGroupedDaily = apiRequest("v2/aggs/grouped/locale/us/market/stocks/{date}", { results: [] })
 // export const client = restClient(process.env.API_KEY)
 
 
 
-export async function* iterateTickers(){
+export async function* iterateTickers() {
     let total = 0
     let data
     let resp
     let page = 1
     do {
-        let polyResp = await getTickerPage({page})
+        let polyResp = await getTickerPage({ page })
         // count = count===undefined?polyResp.count:count
-        resp=polyResp
-        total+=polyResp.tickers.length
-        for(let data of polyResp.tickers){
+        resp = polyResp
+        total += polyResp.tickers.length
+        for (let data of polyResp.tickers) {
             yield data
         }
         page++
-    } while (total<resp.count)
+    } while (total < resp.count)
     return null
 }
 
@@ -122,7 +155,7 @@ export function toUTCString(date) {
 // export async function getDailies(symbol: string, start: number, end: number, step: number): Promise<AggregateResponse> {
 //     console.log("HIUHUJASEFD")
 //     try {
-        // return client.stocks.aggregates(symbol, 1, "day", start, end, { limit: pageSize }) as Promise<AggregateResponse>
+// return client.stocks.aggregates(symbol, 1, "day", start, end, { limit: pageSize }) as Promise<AggregateResponse>
 //     } catch (e) {
 //         console.log("E", e)
 //         return {results:[]} as AggregateResponse
@@ -168,13 +201,13 @@ export async function* iterateDailiesPages(symbol, start, end, step) {
     let data
     do {
         // console.log("HI!",symbol, pageStart, pageEnd, step)
-        data = await getDailies({ticker:symbol, from:pageStart, to:pageEnd, multiplier:1,timespan:"day"})
+        data = await getDailies({ ticker: symbol, from: pageStart, to: pageEnd, multiplier: 1, timespan: "day" })
         // console.log("HI2")
         bufferSize = data.resultsCount
         pageStart = pageEnd
         pageEnd = pageStart + pageSize * millisInADay
         yield data
-    } while (bufferSize >= pageSize && pageStart<end)
+    } while (bufferSize >= pageSize && pageStart < end)
     return data
 }
 export async function* iterateDailies(symbol, start, end, step) {
@@ -199,7 +232,7 @@ export async function* iterateTradeData(symbol, date) {
     }
     return null
 }
-export async function* iterateTradePages(symbol, date){
+export async function* iterateTradePages(symbol, date) {
     let nextPageTime = date
     const dateString = toUTCString(nextPageTime)
     let bufferSize
@@ -207,7 +240,7 @@ export async function* iterateTradePages(symbol, date){
     // Or the pointer is still within range, there is more data so keep looping
     let data
     do {
-        data = await getTradesPage({ticker:symbol,date:dateString,limit:pageSize,timestamp:nextPageTime})
+        data = await getTradesPage({ ticker: symbol, date: dateString, limit: pageSize, timestamp: nextPageTime })
         bufferSize = data.results_count
         if (bufferSize > 0)
             nextPageTime = data.results[bufferSize - 1].t

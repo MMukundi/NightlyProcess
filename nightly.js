@@ -18,7 +18,7 @@ const { WorkerPool } = Workers
 Settings.defaultZoneName = "America/New_York"
 
 // const StoringTask = "Storing to DB"
-const workerPool = new WorkerPool('./processTrades.js', 5)
+const workerPool = new WorkerPool('./processTrades.js', 50)
 
 function dateToString(date) {
     return date.toFormat('yyyy-MM-dd')
@@ -161,8 +161,8 @@ mongoose.connect(config.DATABASE_URL, { useNewUrlParser: true, useUnifiedTopolog
     console.log(`Connected to Database at ${config.DATABASE_URL}`)
     storeDates(startDate, endDate).then((d) => {
         closeTasks()
-        console.log("Complete", d)
-        // mongoose.disconnect()
+        console.log("Complete")
+        mongoose.disconnect()
         console.log("Closing!", startDate, endDate)
     }).catch(console.log)
 })

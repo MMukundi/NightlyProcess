@@ -26,26 +26,25 @@ function replaceInUrl(apiString) {
 }
 
 const attemptLimit = 10
-function exponentialBackoff(getData) {
+export function exponentialBackoff(getData) {
     async function attempt(errors = []) {
-        const attempts = errors.length
         return new Promise(
             (resolve, reject) => {
-                const resolveAndPrint = (d)=>console.log(`Resolving after ${attempts} attempts`,errors,Object.keys(d))||resolve(d)
-                attempts < attemptLimit ?
+                if (errors.length < attemptLimit) {
                     getData().then(resolve).catch(
                         (e) => {
                             errors.push(e)
                             setTimeout(() =>
-                                attempt(errors).then(resolveAndPrint)
-                                , 1 << attempts)
-                        }
-
-                    ) :
-                    reject({
-                        message: `Unsuccessful after ${attempts} attempts`,
+                                attempt(errors).then(resolve).catch(reject)
+                                , 1 << errors.length)
+                        })
+                } else {
+                    const error = {
+                        message: `Unsuccessful after ${errors.length} attempts`,
                         errors
-                    })
+                    }
+                    reject(error)
+                }
             }
         )
     }
@@ -63,8 +62,8 @@ function apiRequest(apiURL, baseReturnValue = {}) {
 
         return exponentialBackoff(makeRequest).then((data) => ({ ...baseReturnValue, ...data }))
 
-        // .catch((error:ErrorType)=>({...baseReturnValue,...error}))
-        .catch(console.log)
+            // .catch((error:ErrorType)=>({...baseReturnValue,...error}))
+            .catch(console.log)
     }
 }
 //<{page:number},{},{page:number,perPage:number,count:number,tickers:TickersInfo[]}>

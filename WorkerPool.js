@@ -72,11 +72,11 @@ class WorkerPool {
 
         // this.taskQueue = []
         this.tasks = new DynamicQueue()
+        this.capacity = capacity
+        this.allWorkers = []
         this.idleWorkers = []
 
-        for (let i = 0; i < capacity; i++) {
-            this.addWorker()
-        }
+        this.fill()
     }
     returnToPool(worker) {
        if (!this.tasks.empty()) {
@@ -94,6 +94,7 @@ class WorkerPool {
     }
     addWorker() {
         const worker = new Worker(this.path, { env: SHARE_ENV });
+        this.allWorkers.push(worker)
         this.idleWorkers.push(worker)
         // console.log(`Now there are ${this.idleWorkers.length}`)
         worker.on('message', (data) => {
@@ -120,6 +121,17 @@ class WorkerPool {
         const workerToUse = this.idleWorkers.pop()
 
         this.runWorker(workerToUse,data,callback,error)
+    }
+    fill() {
+        for (let i = 0; i < this.capacity; i++) {
+            this.addWorker()
+        }
+    }
+
+    drain() {
+        for(const worker of this.allWorkers){
+            worker.terminate()
+        }
     }
 }
 

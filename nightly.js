@@ -31,7 +31,7 @@ function runWorker(data) {
 
 async function withTradeData(eod, dateString) {
     const tradeData = await runWorker({ ticker: eod.T, date: dateString }).catch(console.log)
-    tradeData.d = dateToString(DateTime.fromMillis(eod.t))
+    tradeData.d = dateString // dateToString(DateTime.fromMillis(eod.t))
     tradeData.r = eod.h - eod.l
     const withTrades = { ...eod, ...tradeData }
     return withTrades
@@ -64,22 +64,39 @@ async function storeDate(date) {
     }
     return []
 }
-const baseURI = 
-path.join(
-decodeURIComponent
-(path.dirname(import.meta.url))
-.replace("file:/",``))
+const baseURI =
+    path.join(
+        decodeURIComponent
+            (path.dirname(import.meta.url))
+            .replace("file:/", ``))
+const CSVheader = ['T', 'oddlotVolume', 'oddlotCount', 'volume', 'count', 'blockCount', 'blockVolume'].map(key => ({ id: key, title: key }))
 function getFileFor(date) {
-    return path.join(baseURI,`csv/${dateToString(date)}.csv`)
-} 
-function last(list){
-    return list[list.length-1]
+    return path.join(baseURI, `csv/${dateToString(date)}.csv`)
+}
+
+function last(list) {
+    return list[list.length - 1]
 }
 async function storeDates(start, end) {
+
+    // Ensure the dates are in the correct order ...
+    if (end.startOf("day") <= start.startOf("day")) {
+        const temp = end
+        end = start
+        start = temp
+    }
+
+    // ... and aren't past today
+    const today = DateTime.now().startOf("day")
+    if (today <= start.startOf("day")) {
+        start = today
+    }
+    if (today <= end.startOf("day")) {
+        end = today
+    }
+
     const totalDays = end.diff(start).as("days")
     const StoringTask = `Storing ${dateToString(start)} - ${dateToString(end)} [${totalDays}]`
-
-
 
     beginTask(StoringTask, totalDays)
     for (let date = start.toLocal(), days = 0; days < totalDays; days++, date = date.plus({ day: 1 })) {
@@ -88,25 +105,17 @@ async function storeDates(start, end) {
         const withTrades = await storeDate(date)
         if (withTrades != undefined) {
             beginTask(csvTask, 1)
-                const writer = createCsvWriter({
-                    path: CSVpath,
-                    header: [
-                        { id: 'T', title: 'ticker' },
-                        { id: 'oddlotVolume', title: 'Odd Lot Volume' },
-                        { id: 'oddlotCount', title: 'Odd Lot Count' },
-                        { id: 'volume', title: 'Volume' },
-                        { id: 'count', title: 'Count' },
-                        { id: 'blockCount', title: 'Block Count' },
-                        { id: 'blockVolume', title: 'Block Volume' },
-                    ]
+            const writer = createCsvWriter({
+                path: CSVpath,
+                header: CSVheader
+            });
+            await writer
+                .writeRecords(withTrades)
+                .then(() => {
+                    incrementTask(csvTask)
+                    endTask(csvTask)
                 });
-                await writer
-                    .writeRecords(withTrades)
-                    .then(() => {
-                        incrementTask(csvTask)
-                        endTask(csvTask)
-                    });
-            
+
         }
         incrementTask(StoringTask)
     }
@@ -116,7 +125,7 @@ async function storeDates(start, end) {
 }
 async function runCalculations(start, end) {
     const CalculationsTask = "Calculations"
-    const allTickers = (await Databasing.getDistinct(eods, {}, ['T'])).T || []
+    const allTickers = (await Databasing.getDistinct(eods, {}, ['T']))[0].T || []
 
     beginTask(CalculationsTask, allTickers.length)
     for (const ticker of allTickers) {
@@ -154,26 +163,39 @@ async function runCalculations(start, end) {
 
 // }
 
-const startDate = DateTime.fromSQL(process.argv[2])
-const endDate = DateTime.fromSQL(process.argv[3])
-mongoose.set('useCreateIndex', true);
-mongoose.connect(config.DATABASE_URL, { useNewUrlParser: true, useUnifiedTopology: true }).then(async (e) => {
-    console.log(`Connected to Database at ${config.DATABASE_URL}`)
-    storeDates(startDate, endDate).then((d) => {
-        closeTasks()
-        console.log("Complete")
-        mongoose.disconnect()
-        console.log("Closing!", startDate, endDate)
-    }).catch(console.log)
-})
-// mongoose.connection.once('open', () => {
-//     // console.log("e",e,"e")   \
-//     storeDates(startDate, endDate).then((d) => {
-//         closeTasks()
-//         // console.log(e,d)
-//         // mongoose.disconnect()
-//         console.log("Closing!", startDate, endDate)
-//     }).catch(console.log)
-//     console.log(`Connected to Database at http://localhost/testFreq`)
-// });
-//npm run nightly 2021-05-01 2021-05-04
+const totalErrors = 30
+let currentError = totalErrors
+function nErrors() {
+    if (0 < (currentError--)) {
+        return new Promise((res, rej) => { rej(`Error Number ${totalErrors - currentError}`) })
+    }
+    return new Promise((res, rej) => { res('Safe!') })
+}
+
+
+async function mainProgram() {
+    const extraArg = process.argv[4]
+    if (extraArg) {
+        switch (extraArg) {
+            case "t": {
+                return Polygon.exponentialBackoff(nErrors).catch(console.log)
+            }
+        }
+    } else {
+        const startDate = DateTime.fromSQL(process.argv[2])
+        const endDate = DateTime.fromSQL(process.argv[3])
+        mongoose.set('useCreateIndex', true);
+        return mongoose.connect(config.DATABASE_URL, { useNewUrlParser: true, useUnifiedTopology: true }).then(async (e) => {
+            console.log(`Connected to Database at ${config.DATABASE_URL}`)
+            storeDates(startDate, endDate).then(() => {
+                closeTasks()
+                console.log("Complete")
+                mongoose.disconnect()
+                console.log("Closing!", startDate, endDate)
+            }).catch(console.log)
+        })
+    }
+}
+
+mainProgram()
+.then(_ => workerPool.drain())

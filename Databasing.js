@@ -65,9 +65,9 @@ export async function storeEODs(eods) {
     })
 }
 //Returns the distinct values for each provided column in a specific Collection
-export async function getDistinct(Collection, filters, optionsToGet) {
+export async function getDistinct(Collection, filters, optionsToGet,groupBy = null) {
     // console.log(filters,optionsToGet)
-    const $group = { _id: null }
+    const $group = { _id: groupBy }
     const $project = {}
     for (const option of optionsToGet) {
         const optionTag = `$${option}`
@@ -80,7 +80,7 @@ export async function getDistinct(Collection, filters, optionsToGet) {
     }
     const options = await Collection.aggregate(pipeline)
     // console.log(options,Collection)
-    return options[0] || []
+    return options || []
 }
 
 export function isInRange(doc, start, end) {

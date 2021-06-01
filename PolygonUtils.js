@@ -1,81 +1,22 @@
 // import StockData from "../src/StockViewer";
-import pkg from 'dotenv';
-const { config } = pkg;
-import fetch from 'node-fetch'
+import {apiRequester} from "./Utils.js"
+import config from "./Config.js"
 import { millisInADay, millisIn90Days, millisIn90MarketDays } from './Common.js'
 // import {ITickerDetailsFormatted as TickerResponse} from 'polygon.io/lib/rest/reference/tickerDetails'
-config()
-export const keyQuery = `apiKey=${process.env.API_KEY}`
 //https://api.polygon.io/v2/aggs/grouped/locale/us/market/stocks/${date}?apiKey=${key}
-//
-function toQueryString(t) {
-    let qString = ""
-    for (let key in t) {
-        qString += `${key}=${t[key]}&`
-    }
-    return qString
-}
-function replaceInUrl(apiString) {
-    return (t) => {
-        let s = apiString
-        for (let key in t) {
-            s = s.replace(`{${key}}`, t[key] ? t[key].toString() : "")
-        }
-        return s
-    }
-}
 
-const attemptLimit = 10
-export function exponentialBackoff(getData) {
-    async function attempt(errors = []) {
-        return new Promise(
-            (resolve, reject) => {
-                if (errors.length < attemptLimit) {
-                    getData().then(resolve).catch(
-                        (e) => {
-                            errors.push(e)
-                            setTimeout(() =>
-                                attempt(errors).then(resolve).catch(reject)
-                                , 1 << errors.length)
-                        })
-                } else {
-                    const error = {
-                        message: `Unsuccessful after ${errors.length} attempts`,
-                        errors
-                    }
-                    reject(error)
-                }
-            }
-        )
-    }
-    return attempt()
-}
+const polygonRequest = apiRequester('https://api.polygon.io',{apiKey:config.API_KEY})
 
-
-// type PolygonResponse<T> = ({error?:string}&T)
-function apiRequest(apiURL, baseReturnValue = {}) {
-    const replacer = replaceInUrl(apiURL)
-    // type ResponseOptions = URLOptions&QueryOptions
-    return (apiOptions) => {
-        const makeRequest = () => fetch(`https://api.polygon.io/${replacer(apiOptions)}?${toQueryString(apiOptions)}${keyQuery}`).then(resp => resp.json())
-        // .then(d=>{console.log(`https://api.polygon.io/${replacer(apiOptions)}?${toQueryString(apiOptions)}${keyQuery}`,d);return d})
-
-        return exponentialBackoff(makeRequest).then((data) => ({ ...baseReturnValue, ...data }))
-
-            // .catch((error:ErrorType)=>({...baseReturnValue,...error}))
-            .catch(console.log)
-    }
-}
 //<{page:number},{},{page:number,perPage:number,count:number,tickers:TickersInfo[]}>
-export const getTickerPage = apiRequest("v2/reference/tickers", { tickers: [] })
-//<{ticker:string,multiplier:number,timespan:string,from:number,to:number},{},AggregateResponse>
-export const getDailies = apiRequest("v2/aggs/ticker/{ticker}/range/{multiplier}/{timespan}/{from}/{to}", { results: [] })
+export const getTickerPage = polygonRequest("v2/reference/tickers", { tickers: [] })
+//<{ticker:string,multiplier:polygonRequest,timespan:string,from:number,to:number},{},AggregateResponse>
+export const getDailies = polygonRequest("v2/aggs/ticker/{ticker}/range/{multiplier}/{timespan}/{from}/{to}", { results: [] })
 //<{ticker:string,date:string},{limit:number,timestamp:number},HistorcTradesResponse>
-export const getTradesPage = apiRequest("v2/ticks/stocks/trades/{ticker}/{date}", { results: [] })
+export const getTradesPage = polygonRequest("v2/ticks/stocks/trades/{ticker}/{date}", { results: [] })
 //<{ticker:string},{},TickerInfo>
-export const getInfo = apiRequest("v1/meta/symbols/{ticker}/company")
+export const getInfo = polygonRequest("v1/meta/symbols/{ticker}/company")
 //<{date:string},{},{results:{T,v,o,c,h,l,t}[]}>
-export const getGroupedDaily = apiRequest("v2/aggs/grouped/locale/us/market/stocks/{date}", { results: [] })
+export const getGroupedDaily = polygonRequest("v2/aggs/grouped/locale/us/market/stocks/{date}", { results: [] })
 // export const client = restClient(process.env.API_KEY)
 
 

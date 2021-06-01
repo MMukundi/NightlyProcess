@@ -4,7 +4,7 @@
     "dev": "nodemon nightly.js",
     "test": "npm start 2021-05-01 2021-05-04",
     "testDev": "npm run dev 2021-05-01 2021-05-04",
-    "db": "mongod --dbpath data/db"
+    "db": "mongod --dbpath db/data --logpath db/log/mongod.log"
   },
   "type": "module",
   "dependencies": {

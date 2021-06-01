@@ -130,6 +130,8 @@ class WorkerPool {
 
     drain() {
         for(const worker of this.allWorkers){
+            // worker.emit("close")
+            // worker.unref()
             worker.terminate()
         }
     }

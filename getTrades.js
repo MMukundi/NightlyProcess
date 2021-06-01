@@ -2,6 +2,10 @@ const key = process.env.API_KEY
 import * as PolygonUtils from './PolygonUtils.js'
 // import mongoose from "mongoose"
 import Frequency from "./models/frequency.js"
+import mongoose from "mongoose"
+import config from "./config.js"
+
+mongoose.connect(config.DATABASE_URL, { useNewUrlParser: true, useUnifiedTopology: true })
 
 function getFrequency(trades){
     return trades.reduce((frequencies, trade) => {
@@ -17,9 +21,8 @@ function formatPriceString(price){
 async function storeFrequencies(ticker, trades) {
     const frequency = getFrequency(trades)
     const tickerRecord = await Frequency.findOne({ticker})||await Frequency.create( {ticker, frequencyTable: []});;
-
+    
     for (const [priceString, volume] of Object.entries(frequency)) {
-        // console.log(priceString, volume);
         const price = +(priceString)
 
         const freqTableItem = tickerRecord.frequencyTable.find(
@@ -39,9 +42,6 @@ async function storeFrequencies(ticker, trades) {
     return 'done';
 }
 
-// start().then((res) => console.log(res));
-
-
 export async function getTrades(ticker, date, invalidConditions = [15, 16, 38, 17], limit = 50000) {
     // Initialization of all the values we want to store
     let oddlotVolume = 0; let oddlotCount = 0; let volume = 0; let count = 0; let blockCount = 0; let blockVolume = 0;
@@ -56,8 +56,8 @@ export async function getTrades(ticker, date, invalidConditions = [15, 16, 38, 1
     let t = 0;
 
     do {
+
         data = await PolygonUtils.getTradesPage({ timestamp: t, limit, date, ticker })
-        // console.log(data.results_count,t)
         if (data.results.length == 0) break;
 
         t = data.results[data.results_count - 1].t
@@ -87,9 +87,6 @@ export async function getTrades(ticker, date, invalidConditions = [15, 16, 38, 1
     // if the result set is equal at the limit there are more records, so check for more.
 
     // Once the result count is less than limit, we must have gotten them all
-
-    // console.log(`${count} trades for ${ticker} on ${date}`)
-
     const tradeSummary = {
         oddlotVolume,
         oddlotCount,
@@ -98,12 +95,6 @@ export async function getTrades(ticker, date, invalidConditions = [15, 16, 38, 1
         blockCount,
         blockVolume
     }
-    // console.log(count)
-    // console.log(ticker,date,tradeSummary)
     return tradeSummary
 }
 
-// getTrades("AMC", "2021-01-29").then((data) => { console.log(data) })
-// getTrades("AMC", "2021-01-29").then((data) => { console.log(data) })
-// getTrades("AMC", "2021-01-28").then((data) => { console.log(data) })
-//getTrades("PTEN", "2021-03-01").then((data) => { console.log(data) })

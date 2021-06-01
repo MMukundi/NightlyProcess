@@ -1,6 +1,8 @@
 node_modules
 .DS_Store
 .vscode/
+db/
+csv/
 
 # Logs
 logs
@@ -111,6 +113,3 @@ dist
 
 # TernJS port file
 .tern-port
-
-data/
-csv/

@@ -7,18 +7,7 @@ import * as PolygonUtils from './PolygonUtils.js';
 import TradeSchema from './models/trade.js'
 
 const ShouldLog = false
-// mongoose.connect("mongodb://54.147.196.139:27017",{useNewUrlParser: true, useUnifiedTopology: true },async (e)=>{
-//     console.log("Mongo says ", e)
-// })
 mongoose.set('useCreateIndex', true);
-// mongoose.connect("mongodb://localhost/stock-daily", { useNewUrlParser: true, useUnifiedTopology: true }, async (e) => {
-//     // if (ShouldLog)
-//     //     console.log("Mongo says ", e)
-//     // else
-//     //     console.log(
-//     //         "connected"
-//     //     )
-// })
 
 // interface StockData {
 //     ticker: string
@@ -38,9 +27,7 @@ function genStart(end) {
 
 export async function storeAllDailies(start, end) {
     // const allTickers = await PolygonUtils.getTickers({})
-    // console.log(allTickers)
     for await (const ticker of PolygonUtils.iterateTickers()) {
-        // console.log(ticker)
         await storeDailies(ticker.ticker, start, end)
     }
 }
@@ -51,13 +38,13 @@ export async function storeEODs(eods) {
             if (e) {
                 if (e.code != 11000) {
                     if (ShouldLog)
-                        console.log("EODError", e)
+                        console.log("Error storing EODs", e)
                     reject(e)
                     return e
                 }
                 else {
                     if (ShouldLog)
-                        console.log("DUPE CAUGHT", e.message)
+                        console.log("Attempt to insert duplicate", e.message)
                 }
             }
             resolve()
@@ -66,7 +53,7 @@ export async function storeEODs(eods) {
 }
 //Returns the distinct values for each provided column in a specific Collection
 export async function getDistinct(Collection, filters, optionsToGet,groupBy = null) {
-    // console.log(filters,optionsToGet)
+
     const $group = { _id: groupBy }
     const $project = {}
     for (const option of optionsToGet) {
@@ -79,24 +66,23 @@ export async function getDistinct(Collection, filters, optionsToGet,groupBy = nu
         pipeline.push({ $project })
     }
     const options = await Collection.aggregate(pipeline)
-    // console.log(options,Collection)
+
     return options || []
 }
 
 export function isInRange(doc, start, end) {
     const minTimestamp = doc.get("minTimestamp")
     const maxTimestamp = doc.get("maxTimestamp")
-    // console.log(minTimestamp, maxTimestamp, start, end, minTimestamp <= start && start <= maxTimestamp, minTimestamp <= end && end <= maxTimestamp, minTimestamp <= start && start <= maxTimestamp && minTimestamp <= end && end <= maxTimestamp)
+
     return { newMin: Math.min(minTimestamp, start), newMax: Math.max(maxTimestamp, end), inRange: (minTimestamp <= start && start <= maxTimestamp && minTimestamp <= end && end <= maxTimestamp) }
 }
 export async function storeDailies(symbol, start, end) {
     const tickerInfo = await PolygonUtils.getInfo({ ticker: symbol });
-    if (tickerInfo.error != undefined) {
-        console.log(symbol)
-        // return
+    if (tickerInfo.error) {
+        return
     }
     const doc = await Tickers.findOneAndUpdate({ symbol: tickerInfo.symbol }, tickerInfo, { upsert: true, new: true, useFindAndModify: false })
-    console.log(tickerInfo, doc)
+
     //If the entire queried range is in range, return
     const rangeInfo = isInRange(doc, start, end)
     if (rangeInfo.inRange) {
@@ -110,13 +96,9 @@ export async function storeDailies(symbol, start, end) {
     const dailiesPages = await PolygonUtils.iterateDailiesPages(symbol, start, end, millisInADay);
     const tradePages = await PolygonUtils.iterateTradePages(symbol, start);
     for await (let page of dailiesPages) {
-        // console.log(page)
         // doc.updateOne({ $push: { daily: { $each: page.results } } }, {}, (e, d) => e ? console.log("DailyError", e) : null)
         await EODs.insertMany(page.results, (e, d) => e ? console.log("DailyError", e) : null)
     }
-    // for await(let page of tradePages){
-    //     await TradeSchema.updateOne({$push:{trade:{$each:page.results}}},{},(e,d)=>e?console.log("TradeError",e):null)
-    // }
     console.log(`Stored new data for ${symbol} from ${start} to ${end}`)
     return doc
 }

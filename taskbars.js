@@ -3,7 +3,7 @@ import _colors from "colors"
 export const progressBars = new cliProgress.MultiBar({
     clearOnComplete: false,
     hideCursor: true,
-    format:`[{bar}] {percentage}% | ETA: {eta}s | {value}/{total}`
+    format:`[{bar}] {percentage}% | ETA: {eta}s | {value}/{total} | {task}`
 
 }, cliProgress.Presets.shades_grey);
 

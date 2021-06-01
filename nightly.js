@@ -1,10 +1,12 @@
+import log from "why-is-node-running"
 import { beginTask, incrementTask, endTask, closeTasks } from "./taskbars.js"
 import * as Polygon from './PolygonUtils.js'
 import * as Databasing from './Databasing.js'
 import Workers from './WorkerPool.js'
 import lux from 'luxon';
 import mongoose from 'mongoose';
-import config from "./config.js"
+import config from "./Config.js"
+import * as Utils from "./Utils.js"
 import eods from "./models/eods.js"
 import { Filters, setFilter } from "./filters.js"
 import path from "path"
@@ -39,10 +41,13 @@ async function withTradeData(eod, dateString) {
 
 async function getEodsWithTrades(date) {
     const dateString = dateToString(date)
-    const eods = (await Polygon.getGroupedDaily({ date: dateString }))?.results
+    const response = (await Polygon.getGroupedDaily({ date: dateString }))
+    const eods = (response?.results)// /?.slice(0,100)
+
     if (eods == null) {
         return
     }
+    
     const DateTask = `${dateString}`
     beginTask(DateTask, eods.length)
     function incrementDateTask(data) {
@@ -125,7 +130,7 @@ async function storeDates(start, end) {
 }
 async function runCalculations(start, end) {
     const CalculationsTask = "Calculations"
-    const allTickers = (await Databasing.getDistinct(eods, {}, ['T']))[0].T || []
+    const allTickers = (await Databasing.getDistinct(eods, {}, ['T']))[0]?.T || []
 
     beginTask(CalculationsTask, allTickers.length)
     for (const ticker of allTickers) {
@@ -163,7 +168,7 @@ async function runCalculations(start, end) {
 
 // }
 
-const totalErrors = 30
+const totalErrors = 5
 let currentError = totalErrors
 function nErrors() {
     if (0 < (currentError--)) {
@@ -171,31 +176,37 @@ function nErrors() {
     }
     return new Promise((res, rej) => { res('Safe!') })
 }
+function print(d) {
+    console.log(d)
+    return d
+}
 
-
-async function mainProgram() {
+async function main() {
     const extraArg = process.argv[4]
     if (extraArg) {
         switch (extraArg) {
             case "t": {
-                return Polygon.exponentialBackoff(nErrors).catch(console.log)
+                return Utils.exponentialBackoff(nErrors).then(print).catch(print)
             }
         }
     } else {
         const startDate = DateTime.fromSQL(process.argv[2])
         const endDate = DateTime.fromSQL(process.argv[3])
         mongoose.set('useCreateIndex', true);
-        return mongoose.connect(config.DATABASE_URL, { useNewUrlParser: true, useUnifiedTopology: true }).then(async (e) => {
+        return new Promise((res,rej)=>
+        mongoose.connect(config.DATABASE_URL, { useNewUrlParser: true, useUnifiedTopology: true }).then(async (e) => {
             console.log(`Connected to Database at ${config.DATABASE_URL}`)
-            storeDates(startDate, endDate).then(() => {
-                closeTasks()
-                console.log("Complete")
-                mongoose.disconnect()
-                console.log("Closing!", startDate, endDate)
-            }).catch(console.log)
-        })
+            storeDates(startDate, endDate).then(res).catch(rej)
+        }))
     }
 }
+function finish(val){
+    console.log("closing!")
+    closeTasks()
+    console.log("Closed", val)
+    workerPool.drain()
+    log()
+    console.log("Drain successful?")
 
-mainProgram()
-.then(_ => workerPool.drain())
+}
+main().then(finish)
